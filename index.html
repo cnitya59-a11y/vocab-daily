@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Word a Day</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#faf8f3;--card:#fff;--ink:#1f1a17;--muted:#7a716a;--accent:#6c4bd8;--soft:#efeaff;--line:#e8e2d8}
+@media (prefers-color-scheme:dark){:root{--bg:#16141a;--card:#1f1c25;--ink:#f1ede6;--muted:#a49cae;--accent:#a68bff;--soft:#2a2438;--line:#2f2a37}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif;line-height:1.5}
+main{max-width:720px;margin:0 auto;padding:40px 16px 80px}
+header p{color:var(--muted);margin:4px 0 0}
+h1{font-family:Fraunces,serif;font-size:clamp(28px,6vw,40px);margin:0}
+.today{display:grid;gap:16px;margin:28px 0 40px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px}
+.word{font-family:Fraunces,serif;font-size:clamp(30px,7vw,42px);font-weight:700;color:var(--accent);margin:0}
+.pos{font-style:italic;color:var(--muted);font-size:14px}
+.meaning{font-size:18px;margin:8px 0}
+.ex{color:var(--muted);border-left:3px solid var(--soft);padding-left:10px}
+.bar{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px}
+h2{font-family:Fraunces,serif;font-size:22px;margin:0}
+input{flex:1;min-width:180px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit}
+.row{display:grid;grid-template-columns:52px 1fr;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.d{color:var(--muted);font-size:13px;padding-top:3px}
+.row b{font-family:Fraunces,serif;font-size:18px}
+.row span{color:var(--muted)}
+.empty{color:var(--muted);padding:16px 0}
+.nav{display:flex;gap:8px;margin-top:6px}
+button{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:6px 14px;font:inherit;cursor:pointer}
+button:disabled{opacity:.4;cursor:default}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Word a Day</h1>
+    <p id="sub">Loading…</p>
+    <div class="nav"><button id="prev">← Prev</button><button id="next">Next →</button></div>
+  </header>
+  <section class="today" id="today"></section>
+  <section>
+    <div class="bar"><h2>Archive</h2><input id="q" placeholder="Search words or meanings"></div>
+    <div id="list"></div>
+  </section>
+</main>
+<script>
+const START = new Date(2026, 10, 5); // Nov 5, 2026 = Day 1 (keep in sync with send_vocab.py)
+function parseCSV(t){const out=[];let row=[],f="",q=false;for(let i=0;i<t.length;i++){const c=t[i];
+ if(q){if(c=='"'){if(t[i+1]=='"'){f+='"';i++}else q=false}else f+=c}
+ else if(c=='"')q=true;else if(c==','){row.push(f);f=""}else if(c=='\n'){row.push(f);out.push(row);row=[];f=""}else if(c!='\r')f+=c}
+ if(f||row.length){row.push(f);out.push(row)}return out}
+const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let byDay={},total=0,todayN=1,view=1;
+function istToday(){const n=new Date();const ist=new Date(n.getTime()+(n.getTimezoneOffset()+330)*60000);return new Date(ist.getFullYear(),ist.getMonth(),ist.getDate())}
+function dateFor(d){const x=new Date(START);x.setDate(x.getDate()+d-1);return x.toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'})}
+function renderToday(){
+ const ws=byDay[view]||[];
+ document.getElementById('sub').textContent=`Day ${view} · ${dateFor(view)}`+(view===todayN?' · today':'');
+ document.getElementById('today').innerHTML=ws.map(w=>`<article class="card"><p class="word">${esc(w.word)} <span class="pos">${esc(w.pos)}</span></p><p class="meaning">${esc(w.meaning)}</p><p class="ex">“${esc(w.example)}”</p></article>`).join('');
+ document.getElementById('prev').disabled=view<=1;document.getElementById('next').disabled=view>=todayN;
+}
+function renderList(){
+ const q=document.getElementById('q').value.trim().toLowerCase();let html="";
+ for(let d=todayN;d>=1;d--)for(const w of byDay[d]||[]){
+  if(q&&!(w.word+" "+w.meaning).toLowerCase().includes(q))continue;
+  html+=`<div class="row"><div class="d">#${d}</div><div><b>${esc(w.word)}</b> <span>— ${esc(w.meaning)}</span></div></div>`}
+ document.getElementById('list').innerHTML=html||'<p class="empty">No words yet.</p>';
+}
+fetch('words.csv').then(r=>r.text()).then(t=>{
+ const rows=parseCSV(t).slice(1).filter(r=>r.length>=5);
+ for(const [d,word,pos,meaning,example] of rows)(byDay[+d]??=[]).push({word,pos,meaning,example});
+ total=Object.keys(byDay).length;
+ const diff=Math.round((istToday()-START)/86400000);
+ todayN=diff<0?1:(diff%total)+1;view=todayN;
+ renderToday();renderList();
+}).catch(()=>{document.getElementById('sub').textContent="Couldn't load words.csv"});
+document.getElementById('q').addEventListener('input',renderList);
+document.getElementById('prev').onclick=()=>{view--;renderToday()};
+document.getElementById('next').onclick=()=>{view++;renderToday()};
+</script>
+</body>
+</html>
