@@ -10,7 +10,7 @@ from email.mime.text import MIMEText
 SENDER = "cnitya59@gmail.com"
 RECEIVER = os.environ.get("RECEIVER_EMAIL") or "cnitya59@gmail.com"
 APP_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD", "")
-START_DATE = date(2026, 11, 5)          # Day 1
+START_DATE = date(2026, 11, 4)          # Day 1
 SITE_URL = os.environ.get("SITE_URL", "")  # optional link to your GitHub Pages site
 
 IST = timezone(timedelta(hours=5, minutes=30))
